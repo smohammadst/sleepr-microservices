@@ -1,0 +1,40 @@
+FROM node:lts as development
+
+WORKDIR /user/src/app
+
+COPY package.json ./
+COPY pnpm-lock.yaml ./
+
+RUN apt-get update && apt-get install -y curl git && \
+    npm install -g pnpm && \
+    pnpm config set store-dir /root/.pnpm-store
+
+RUN pnpm -v
+
+RUN pnpm install
+
+COPY . .
+RUN pnpm run build
+
+# ---------------- Production Stage ----------------
+
+FROM node:lts as production
+
+ARG NODE_ENV=production
+ENV NODE_ENV=${NODE_ENV}
+
+WORKDIR /user/src/app
+COPY package.json ./
+COPY pnpm-lock.yaml ./
+
+RUN apt-get update && apt-get install -y curl git && \
+    npm install -g pnpm && \
+    pnpm config set store-dir /root/.pnpm-store
+
+RUN pnpm -v
+
+RUN pnpm install --prod
+
+COPY --from=development /user/src/app/dist ./dist
+
+CMD ["node", "dist/apps/reservations/main"]
